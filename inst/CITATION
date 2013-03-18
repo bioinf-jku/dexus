@@ -1,0 +1,23 @@
+citHeader("To cite package 'dexus' in publications use:")
+
+citEntry(entry="Article",
+         title="Identifying Differential Expression in RNA-Seq Studies with Unknown Conditions",
+         author=personList(as.person("Guenter Klambauer"),
+                           as.person("Thomas Unterthiner"),
+                           as.person("Sepp Hochreiter")),
+         year="2013",
+         volume="?",
+         pages="?",
+         journal="Submitted.",
+         organization=paste("Institute of Bioinformatics",
+                            "Johannes Kepler University", sep=", "),
+         doi="",
+         url="http://bioinf.jku.at/dexus",
+         textVersion =
+             paste("Guenter Klambauer, Thomas Unterthiner, Sepp Hochreiter (2013) ",
+              	    "Submitted. http://bioinf.jku.at/dexus",sep="")
+         
+         )
+                   
+citFooter("To obtain the references in BibTex format, enter",
+          "'toBibtex(citation(\"dexus\"))'")
