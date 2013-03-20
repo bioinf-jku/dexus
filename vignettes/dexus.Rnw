@@ -1,3 +1,14 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+%\VignetteIndexEntry{dexus: Manual for the R package}
+%\VignetteDepends{dexus}
+%\VignettePackage{dexus}
+%\VignetteKeywords{RNASeq, RNA-Seq, RNA, Sequencing, NGS, differential expression,
+%   transcripts, transcriptomics, negative binomial, dispersion,
+%   overdispersion, maximum-a-posteriori, I/NI, INI, informative,
+%   non-informative, replicates, unsupervised, clustering, unknown, conditions,
+%   ENCODE, sample groups, case-control, treatment study, randomized controlled
+%   study, RCS, non-randomized, cross-sectional, cross sectional, cohort}
+
 \documentclass[article]{bioinf}
 
 \usepackage[noae]{Sweave}
@@ -27,8 +38,6 @@
 Linz\\Altenberger Str. 69, 4040 Linz, Austria\\
 \email{klambauer@bioinf.jku.at}}
 
-%\VignetteIndexEntry{Rchemcpp}
-%\VignetteKeywords{Kernel, kernels, graph, graphs, similarity, molecules, compounds}
 
 \newcommand{\DEXUS}{\texttt{DEXUS}}
 \newcommand{\R}{R}

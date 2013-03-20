@@ -18,12 +18,12 @@ Description: DEXUS identifies differentially expressed genes in RNA-Seq data
     method for each transcript. The method provides an
     informative/non-informative value to extract differentially expressed
     transcripts at a desired significance level or power.
-Version: 0.99.1
-Date: 2013-03-18
+Version: 0.99.2
+Date: 2013-03-20
 Maintainer: Guenter Klambauer <klambauer@bioinf.jku.at>
 Author: Guenter Klambauer
 License: LGPL (>= 2.0)
-Depends: R (>= 2.15), methods
+Depends: R (>= 2.15), methods, BiocGenerics
 Suggests: parallel, statmod, stats, DESeq, RColorBrewer
 Collate: 'AllClasses.R' 'AllGenerics.R' 'binomTest.R' 'normalization.R'
         'dexus.R' 'getSizeNB.R' 'functions.R' 'plot-methods.R'
