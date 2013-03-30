@@ -13,12 +13,12 @@ Description: DEXUS identifies differentially expressed genes in RNA-Seq data
     since the core algorithm is written in C. For very large data sets, a
     parallel version of DEXUS is provided in this package. DEXUS is a
     statistical model that is selected in a Bayesian framework by an EM
-    algorithm. DEXUS does need replicates to detect differentially expressed
-    transcript, since the replicates (or conditions) are estimated by the EM
+    algorithm. DEXUS does not need replicates to detect differentially expressed
+    transcripts, since the replicates (or conditions) are estimated by the EM
     method for each transcript. The method provides an
     informative/non-informative value to extract differentially expressed
     transcripts at a desired significance level or power.
-Version: 0.99.2
+Version: 0.99.3
 Date: 2013-03-20
 Maintainer: Guenter Klambauer <klambauer@bioinf.jku.at>
 Author: Guenter Klambauer
