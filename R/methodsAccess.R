@@ -416,8 +416,8 @@ setMethod("INI", signature="DEXUSResult",
 								"was run in unsupervised mode."))
 			
 			idx <- object@INIValues > threshold
-			y <- length(object@INICalls)
-			x <- length(which(object@INICalls))
+			y <- length(idx)
+			x <- length(which(idx))
 			cat("Total number of transcripts: ",y,"\n")
 			cat("Number of differentially expressed transcripts: ",x,"\n")
 			cat("Percentage of differentially expressed transcripts: ",

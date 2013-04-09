@@ -190,14 +190,14 @@ to be provided.
 
 <<eval=FALSE>>=
 result <- dexus(countsBottomly[1:1000, ])
-plot(sort(result))
+plot(result)
 @
 
 
 <<fig=FALSE,echo=FALSE,results=hide>>=
 result <- dexus(countsBottomly[1:1000, ])
 pdf("001.pdf")
-plot(sort(result),cexSamples=1)
+plot(result,cexSamples=1)
 dev.off()
 @
 
@@ -223,14 +223,14 @@ groups, \method{DEXUS} needs to be provided with the group labels:
 <<eval=FALSE>>=
 resultSupervised <- dexus(countsBottomly[1:1000, ],
 		labels=substr(colnames(countsBottomly),1,2))
-plot(sort(resultSupervised))
+plot(resultSupervised)
 @
 
 <<fig=FALSE,echo=FALSE,results=hide>>=
 resultSupervised <- dexus(countsBottomly[1:1000, ],
 		labels=substr(colnames(countsBottomly),1,2))
 pdf("002.pdf")
-plot(sort(resultSupervised),cexSamples=1)
+plot(resultSupervised,cexSamples=1)
 dev.off()
 @
 
@@ -340,7 +340,7 @@ are classfied as differentially expressed. The function {\tt INI} filters
 the result object for informative transcripts and sorts them by their I/NI calls.
 
 <<>>=
-informativeTranscripts <- INI(resultMontgomery,threshold=0.1)
+informativeTranscripts <- INI(resultMontgomery,threshold=0.2)
 @
 
 
@@ -536,7 +536,7 @@ respectively. The threshold for the I/NI values is set by the function
 transcripts.
 
 <<echo=TRUE>>=
-informativeTranscripts2 <- INI(resultMontgomery,threshold=0.1)
+informativeTranscripts2 <- INI(resultMontgomery,threshold=0.3)
 @
 
 The object {\tt informativeTranscripts2} contains only the informative, i.e. the

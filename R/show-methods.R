@@ -106,6 +106,15 @@ setMethod("show", "DEXUSResult",function(object){
 				}
 			}
 			
+			cat("\n")
+			
+			y <- length(object@INICalls)
+			x <- length(which(object@INICalls))
+			cat("Total number of transcripts: ",y,"\n")
+			cat("Number of differentially expressed transcripts: ",x,"\n")
+			cat("Percentage of differentially expressed transcripts: ",
+					round(x/y,3)*100,"%","\n")
+			
 			#dexus::plot(object,n=min(20,nrow(object@normalizedData)))
 		})
 

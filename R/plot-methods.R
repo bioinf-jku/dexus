@@ -3,7 +3,8 @@
 
 #' @title Visualization of a result of the DEXUS algorithm.
 #' 
-#' @description Plots a heatmap of the log read counts of the top ranked genes.
+#' @description Plots a heatmap of the log read counts of the top ranked genes
+#' or of selected genes.
 #' @param x An instance of "CNVDetectionResult" 
 #' @param idx The indices or the transcript names of the transcripts that 
 #' should be visualized as heatmap.
@@ -26,8 +27,9 @@ setMethod("plot", signature(x="DEXUSResult",y="missing"),
 		function(x, idx, cexSamples=0.5,cexGenes=1,
 				newColNames=NULL,type="crosses",cexCrosses=2){
 			library(RColorBrewer)			
+			nmax <- length(x@INIValues)
 			if (missing(idx))
-				idx <- 1:(min(10,length(x@transcriptNames)))
+				idx <- order(x@INIValues,decreasing=TRUE)[1:min(15,nmax)]
 			
 			idx <- rev(idx)
 			xf <- x[idx]

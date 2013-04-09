@@ -24,7 +24,7 @@
 }
 \description{
   Plots a heatmap of the log read counts of the top ranked
-  genes.
+  genes or of selected genes.
 }
 \examples{
 data(dexus)
