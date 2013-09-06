@@ -23,6 +23,8 @@
 #' @export
 #' @importFrom graphics plot
 
+
+
 setMethod("plot", signature(x="DEXUSResult",y="missing"),
 		function(x, idx, cexSamples=0.5,cexGenes=1,
 				newColNames=NULL,type="crosses",cexCrosses=2){
@@ -90,4 +92,5 @@ setMethod("plot", signature(x="DEXUSResult",y="missing"),
 				axis(2,at=seq(0,1,ia),labels=colnames(X),las=2,cex.axis=cexGenes)
 			}
 		})
+
 
