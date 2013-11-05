@@ -536,7 +536,7 @@ respectively. The threshold for the I/NI values is set by the function
 transcripts.
 
 <<echo=TRUE>>=
-informativeTranscripts2 <- INI(resultMontgomery,threshold=0.3)
+informativeTranscripts2 <- INI(resultMontgomery,threshold=0.25)
 @
 
 The object {\tt informativeTranscripts2} contains only the informative, i.e. the
@@ -547,15 +547,17 @@ differentially expressed transcripts.
 There is a generic plotting function that can be applied to the result object
 of \method{DEXUS}. The log read counts are visualized as a heatmap, in which we
 also indicate the identified sample condition.
-We can select how many transcripts we want to plot by using the parameter {\tt n}.
+We can select which transcripts we want to plot by using the parameter {\tt
+idx}.
 
 <<eval=FALSE>>=
-plot(informativeTranscripts2)
+#plots the top 8 transcripts
+plot(sort(informativeTranscripts2), idx=1:8)
 @
 
 <<fig=FALSE,echo=FALSE,results=hide>>=
 pdf("005.pdf",width=12,height=6)
-plot(informativeTranscripts2)
+plot(sort(informativeTranscripts2),idx=1:8)
 dev.off()
 @
 
