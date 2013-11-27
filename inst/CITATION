@@ -6,7 +6,7 @@ citEntry(entry="Article",
                            as.person("Sepp Hochreiter")),
          year="2013",
          volume="41",
-         number="21"
+         number="21",
          pages="e198-e198",
          journal="Nucleic Acids Research",
          organization=paste("Institute of Bioinformatics",
