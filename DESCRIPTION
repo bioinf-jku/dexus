@@ -23,7 +23,7 @@ biocViews: HighThroughputSequencing, Sequencing,
     Pan_troglodytes, RNASeq, GeneExpression, DifferentialExpression,
     CellBiology, HighTroughputSequencingData, HapMap, RNAExpressionData,
     RNAseqData, Classification, QualityControl
-Version: 1.3.2
+Version: 1.3.3
 Date: 2013-11-05
 Maintainer: Guenter Klambauer <klambauer@bioinf.jku.at>
 Author: Guenter Klambauer
