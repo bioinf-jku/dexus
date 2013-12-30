@@ -189,7 +189,7 @@ SEXP dexus_impl(SEXP XS, SEXP nrowS, SEXP ncolS,
 	int g = INTEGER(nrowS)[0];
 	int N =INTEGER(ncolS)[0];
 
-	const double EPS = 1e-12;
+	const double EPS = 1e-100;
 	const double DEFAULT_R = 20; // R value used when re-setting clusters
 
 	double* alphaINIT=REAL(alphaINITS);
@@ -265,7 +265,7 @@ SEXP dexus_impl(SEXP XS, SEXP nrowS, SEXP ncolS,
 
 		x = X + gg*N; // current gene
 
-		for (iter=0;iter<cyc;iter++){
+		for (iter=0;iter<=cyc;iter++){
 			// E-step
 			for (j=0;j<n;j++){
 				alphaRowMean[j]=0.0;
@@ -332,7 +332,12 @@ SEXP dexus_impl(SEXP XS, SEXP nrowS, SEXP ncolS,
 
 				// updating components r, p, alpha
 				means[j+gg*n] = wm[j];
-				alpha[j+gg*n] = (alphaRowMean[j]+1.0/n*(gamma[j]-1.0))/(1.0+1.0/n*(gammaSum-n));
+				if (iter<cyc){
+					alpha[j+gg*n] = (alphaRowMean[j]+1.0/n*(gamma[j]-1.0))/(1.0+1.0/n*(gammaSum-n));
+				} else {
+					alpha[j+gg*n] = alphaRowMean[j];
+				}
+
 
 				if (wvar[j]/wm[j] < varToMeanT) { // Poisson component
 					r[j+gg*n] = -1.0;
@@ -341,7 +346,7 @@ SEXP dexus_impl(SEXP XS, SEXP nrowS, SEXP ncolS,
 					r[j+gg*n] = find_r_bisection(x, A, alphaRowMean, N, n, j, wm,
 							gg, maxInnerCyc, eta[gg], -1.0);
 					//r[j+gg*n] = find_r_regulafalsi(x, A, alphaRowMean, N, n, j, wm,
-						//						gg, maxInnerCyc, eta[gg], -1.0);
+					//						gg, maxInnerCyc, eta[gg], -1.0);
 					//r[j+gg*n] = find_r_bisection(x, A, alphaRowMean, N, n, j, wm,
 					//							gg, maxInnerCyc, eta[gg], rmax);
 
@@ -513,7 +518,7 @@ extern "C" SEXP dexus_pval_calculation(SEXP aS, SEXP bS, SEXP muAS,
 		int m = a[i] + b[i];
 		double sum = 0;
 		for (int ks = 0; ks <= m; ++ks) {
-			psums[ks] = dnbinom_mu(ks, sizeA[i], muA[i], 0) * dnbinom_mu(m - ks, sizeB[i], muB[i], 0);
+			psums[ks] = dnbinom(ks, sizeA[i], muA[i], 0) * dnbinom(m - ks, sizeB[i], muB[i], 0);
 			sum += psums[ks];			
 		}
 
@@ -555,3 +560,249 @@ int main() {
 	return 0;	
 }
  */
+// DEXUS SEMI-SUPERVISED:: DEXSS ###############################################
+
+SEXP dexss_impl(SEXP XS, SEXP nrowS, SEXP ncolS,
+		SEXP alphaINITS, SEXP rINITS, SEXP meansINITS,
+		SEXP gammaS, SEXP nS, SEXP cycS, SEXP varToMeanTS, int* classes,
+		SEXP etaS, SEXP minMuS, SEXP rmaxS) {
+	// calculating the log-likelihood with the basic algorithm
+	double* X = REAL(XS);
+	int g = INTEGER(nrowS)[0];
+	int N =INTEGER(ncolS)[0];
+
+	const double EPS = 1e-100;
+	const double DEFAULT_R = 20; // R value used when re-setting clusters
+
+	double* alphaINIT=REAL(alphaINITS);
+	double* rINIT=REAL(rINITS);
+	double* meansINIT=REAL(meansINITS);
+
+	double varToMeanT=REAL(varToMeanTS)[0];
+	double* eta = REAL(etaS);
+	double minMu = REAL(minMuS)[0];
+	double rmax = REAL(rmaxS)[0];
+
+	double* gamma=REAL(gammaS);
+
+	int n = INTEGER(nS)[0];
+	int cyc = INTEGER(cycS)[0];
+
+	double gammaSum;
+	int iter,i,j,gg,maxInnerCyc=100;
+
+	double alphaColSum;
+	double *alphaRowMean;
+	alphaRowMean = (double*) R_alloc(n, sizeof(double));
+
+	double *V2; // squared sum of weights
+	V2 = (double*) R_alloc(n, sizeof(double));
+
+	double *x;
+	x = (double*) R_alloc(N, sizeof(double));
+
+	double *wm;
+	wm = (double*) R_alloc(n, sizeof(double));
+
+	double *wvar;
+	wvar = (double*) R_alloc(n, sizeof(double));
+
+	//SEXP p_RET;
+	//PROTECT(p_RET = allocVector(REALSXP, g*n));
+	//double* p=REAL(p_RET);
+
+	SEXP alpha_RET;
+	PROTECT(alpha_RET = allocVector(REALSXP, g*n));
+	double* alpha=REAL(alpha_RET);
+
+	SEXP r_RET;
+	PROTECT(r_RET = allocVector(REALSXP, g*n));
+	double* r=REAL(r_RET);
+
+	SEXP A_RET;
+	PROTECT(A_RET = allocVector(REALSXP, g*n*N));
+	double* A=REAL(A_RET);
+
+	SEXP means_RET;
+	PROTECT(means_RET = allocVector(REALSXP, g*n));
+	double* means=REAL(means_RET);
+
+	gammaSum=0.0;
+	for (j=0;j<n;j++){
+		gammaSum = gammaSum+gamma[j];
+	}
+
+	GetRNGstate();
+
+	//loop along rows of the data matrix, genes, ROI
+	for (gg=0;gg<g;gg++){
+		//Rprintf("New Gene..\n");
+
+		//initializing alpha, p, r
+		for (j=0;j<n;j++){
+			alpha[j+gg*n]=alphaINIT[j];
+			r[j+gg*n]=rINIT[j+gg*n];
+			means[j+gg*n] = meansINIT[j+gg*n];
+		}
+
+		x = X + gg*N; // current gene
+
+		for (iter=0;iter<=cyc;iter++){
+			// E-step
+			for (j=0;j<n;j++){
+				alphaRowMean[j]=0.0;
+				V2[j]=0.0;
+			}
+
+			for (i=0;i<N;i++){
+				alphaColSum=0.0;
+				for (j=0;j<n;j++){
+
+					// semi-supervised!
+					if (classes[i] >= 0) {
+						if (classes[i]==j){
+							A[j+n*i+gg*n*N] = 1.0;
+						} else {
+							A[j+n*i+gg*n*N] = 0.0;
+						}
+					} else {
+						//if (x[i] < minMu) x[i]=minMu;
+						if (r[j+gg*n] > 0)
+							A[j+n*i+gg*n*N] = alpha[j+gg*n]*mydnbinom(x[i],r[j+gg*n],means[j+gg*n]);
+						else
+							A[j+n*i+gg*n*N] = alpha[j+gg*n]*mydpois(x[i],means[j+gg*n]);
+					}
+
+					if (A[j+n*i+gg*n*N] < EPS){
+						A[j+n*i+gg*n*N] = EPS;
+					}
+					alphaColSum = alphaColSum+A[j+n*i+gg*n*N];
+				}
+				for (j=0;j<n;j++){
+					A[j+n*i+gg*n*N] = A[j+n*i+gg*n*N]/alphaColSum;
+					alphaRowMean[j]=alphaRowMean[j]+A[j+n*i+gg*n*N]/N;
+					V2[j]=V2[j]+A[j+n*i+gg*n*N]*A[j+n*i+gg*n*N];
+				}
+			}
+
+			// Calculating weighted mean and weighted variance for each component
+			// Substitute with online update for var to make efficient
+			for (j=0;j<n;j++){
+				//Rprintf("Component: %lf\n", (double) j);
+
+				wm[j]=EPS;
+				for (i=0;i<N;i++){
+					wm[j] = wm[j]+x[i]*A[j+n*i+gg*n*N];
+				}
+				wm[j]=wm[j]/(N*alphaRowMean[j]);
+				//Rprintf("weightedMean: %lf\n", wm[j]);
+
+				wvar[j]=0.0;
+				for (i=0;i<N;i++){
+					wvar[j] = wvar[j]+A[j+n*i+gg*n*N]*(x[i]-wm[j])*(x[i]-wm[j]);
+				}
+				//unbiased??
+				//wvar[j]=wvar[j]*(N*alphaRowMean[j]/(pow(N*alphaRowMean[j],2)+V2[j]) );
+				//biased:
+				wvar[j]=wvar[j]*N*alphaRowMean[j]/(N*N*alphaRowMean[j]*alphaRowMean[j]-V2[j]);
+				//(wvar <- sum(a*(x-wm)^2)*sum(a)/(sum(a)^2-a2))
+
+				//Rprintf("weightedVar: %lf\n", wvar[j]);
+			}
+
+			// updating components r, p, alpha
+			for (j=0;j<n;j++) {
+
+				// updating components r, p, alpha
+				means[j+gg*n] = wm[j];
+				if (iter<cyc){
+					alpha[j+gg*n] = (alphaRowMean[j]+1.0/n*(gamma[j]-1.0))/(1.0+1.0/n*(gammaSum-n));
+				} else {
+					alpha[j+gg*n] = alphaRowMean[j];
+				}
+
+				if (wvar[j]/wm[j] < varToMeanT) { // Poisson component
+					r[j+gg*n] = -1.0;
+					//r[j+gg*n] = rmax;
+				} else {
+					r[j+gg*n] = find_r_bisection(x, A, alphaRowMean, N, n, j, wm,
+							gg, maxInnerCyc, eta[gg], -1.0);
+					//r[j+gg*n] = find_r_regulafalsi(x, A, alphaRowMean, N, n, j, wm,
+					//						gg, maxInnerCyc, eta[gg], -1.0);
+					//r[j+gg*n] = find_r_bisection(x, A, alphaRowMean, N, n, j, wm,
+					//							gg, maxInnerCyc, eta[gg], rmax);
+
+					//p[j+gg*n] = wm[j]/(wm[j]+r[j+gg*n]+EPS);
+					if (r[j+gg*n] > 10000) {
+						r[j+gg*n] = -1.0; //Approx with Poisson
+					}
+				}
+
+
+				if (means[j+gg*n]< minMu){
+					means[j+gg*n] = minMu;
+				}
+			}
+			/*
+			// look for overlapping clusters
+			for (j = 0; j < n; j++) {
+				for (int k = j+1; k < n; k++) {
+					double d = means[gg*n + j] - means[gg*n + k];
+					if (d*d < 1.0) { // replace cluster center with random datapoint
+						int idx = int(unif_rand() * N);
+						means[gg*n + k] = std::max(x[idx], minMu);
+						r[gg*n + k] = DEFAULT_R;
+					}
+				}
+			}
+			 */
+		}
+
+		if (rmax > 0){
+			for (j=0;j<n;j++) {
+				if ((r[j+gg*n] > rmax) || (r[j+gg*n] < 0)) {
+					r[j+gg*n] = rmax;
+				}
+			}
+		}
+
+
+
+		R_CheckUserInterrupt();
+	} // end over data rows
+
+	PutRNGstate();
+
+	SEXP namesRET;
+	PROTECT(namesRET = allocVector(STRSXP, 4));
+	//SET_STRING_ELT(namesRET, 0, mkChar("p"));
+	SET_STRING_ELT(namesRET, 0, mkChar("r"));
+	SET_STRING_ELT(namesRET, 1, mkChar("alpha"));
+	SET_STRING_ELT(namesRET, 2, mkChar("A"));
+	SET_STRING_ELT(namesRET, 3, mkChar("means"));
+
+	SEXP RET;
+	PROTECT(RET = allocVector(VECSXP, 4));
+	//SET_VECTOR_ELT(RET, 0, p_RET);
+	SET_VECTOR_ELT(RET, 0, r_RET);
+	SET_VECTOR_ELT(RET, 1, alpha_RET);
+	SET_VECTOR_ELT(RET, 2, A_RET);
+	SET_VECTOR_ELT(RET, 3, means_RET);
+	setAttrib(RET, R_NamesSymbol, namesRET);
+
+	UNPROTECT(6);
+	return(RET);
+}
+
+
+extern "C" SEXP dexss(SEXP XS, SEXP nrowS, SEXP ncolS,
+		SEXP alphaINITS, SEXP rINITS, SEXP meansINITS,
+		SEXP gammaS, SEXP nS, SEXP cycS, SEXP varToMeanTS, SEXP classesS,
+		SEXP etaS, SEXP minMuS, SEXP rmaxS) {
+
+	int* classes=INTEGER(classesS);
+	return dexss_impl(XS, nrowS, ncolS, alphaINITS, rINITS, meansINITS, gammaS, nS,
+			cycS, varToMeanTS, classes, etaS, minMuS, rmaxS);
+
+}
+

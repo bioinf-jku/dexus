@@ -26,7 +26,7 @@ setMethod("show", "DEXUSResult",function(object){
 			#idx <- 1:n
 			cat("Displaying the 10 top ranked genes of the analyis: \n")
 			if (!is.null(object@params$mode)){
-				if (object@params$mode=="unsupervised"){
+				if (object@params$mode=="unsupervised" | object@params$mode=="semi-supervised"){
 					idx <- order(object@INIValues,decreasing=TRUE)[1:n]
 					df <- data.frame(
 							"Index"=idx,

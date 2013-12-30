@@ -1,5 +1,6 @@
 exportClasses(DEXUSResult)
 export(conditionSizes)
+export(dexss)
 export(dexus)
 export(dexus.parallel)
 export(dispersions)

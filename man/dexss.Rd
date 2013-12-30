@@ -1,10 +1,10 @@
-\name{dexus}
-\alias{dexus}
-\alias{DEXUS,}
-\title{Detection of Differential Expression in an Unsupervised Setting}
+\name{dexss}
+\alias{dexss}
+\alias{DEXSS,}
+\title{Detection of Differential Expression in a semi-supervised Setting}
 \usage{
-  dexus(X, nclasses = 2, alphaInit, G = 1, cyc = 20,
-    labels = NULL, normalization = "RLE", kmeansIter = 10,
+  dexss(X, nclasses = 2, G = 1, alphaInit, cyc = 20,
+    labels, normalization = "RLE", kmeansIter = 10,
     ignoreIfAllCountsSmaller = 1, theta = 2.5, minMu = 0.5,
     rmax = 13, initialization = "kmeans",
     multiclassPhiPoolingFunction = NULL, quiet = FALSE,
@@ -19,10 +19,6 @@
   \item{nclasses}{The number of conditions, i.e. mixture
   components. (Default = 2)}
 
-  \item{alphaInit}{The initial estimates of the condition
-  sizes, i.e., mixture weights. Not used in the supervised
-  case. (Default = c(0.5,0.5)) .}
-
   \item{G}{The weight of the prior distribution of the
   mixture weights. Not used in the supervised case.
   (Default = 1).}
@@ -30,12 +26,17 @@
   \item{cyc}{Positive integer that sets the number of
   cycles of the EM algorithm. (Default = 20).}
 
-  \item{labels}{labels for the classes, will be coerced
-  into a factor by \code{as.factor}. Can either be a
-  factor, character or integer. If this vector is given,
-  supervised detection is used. If this vector is set to
-  NULL the unsupervised detection is performed.
-  (Default=NULL).}
+  \item{alphaInit}{The initial estimates of the condition
+  sizes, i.e., mixture weights. Not used in the supervised
+  case. (Default = c(0.5,0.5)) .}
+
+  \item{labels}{The labels for the classes, will be coerced
+  into an integer. For this semi-supervised version the
+  known labels/conditions must be coded as integers
+  starting with 1. The samples with the label 1 will be
+  considered as being in the "major condition". For the
+  samples with unknown labels/conditions an "NA" must be
+  set.}
 
   \item{normalization}{method used for normalizing the
   reads. "RLE" is the method used by (Anders and Huber,
@@ -94,10 +95,11 @@
   "DEXUSResult".
 }
 \description{
-  Performs the DEXUS algorithm for detection of
-  differentially expressed genes in RNA-seq data for a)
-  unknown conditions, b) multiple known conditions, and c)
-  two known conditions.
+  Performs the DEXSS algorithm for detection of
+  differentially expressed genes in RNA-seq data for a
+  semi-supervised setting, i.e. that the condition of some
+  samples is known, and for some samples the condition is
+  unkown.
 }
 \details{
   The read count \eqn{x} is explained by a finite mixture
@@ -141,7 +143,12 @@
 }
 \examples{
 data(dexus)
-result <- dexus(countsMontgomery[1:10, ])
+labels1 <- substr(colnames(countsBottomly),1,2)
+labels2 <- c()
+labels2[which(labels1=="D2")] <- 1
+labels2[which(labels1=="B6")] <- 2
+labels2[c(3,7,8,10,12,15)] <- NA
+res <- dexss(countsBottomly[1:100, ],labels=labels2,nclasses=2,G=0)
 }
 \author{
   Guenter Klambauer \email{klambauer@bioinf.jku.at} and

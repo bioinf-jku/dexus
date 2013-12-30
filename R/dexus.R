@@ -280,7 +280,7 @@ dexus.parallel <- function(X, ncores=2,
 #' Unterthiner \email{unterthiner@@bioinf.jku.at}
 #' @export
 
-dexus <- function(X, nclasses=2, alphaInit=c(0.5,0.5), G=1, 
+dexus <- function(X, nclasses=2, alphaInit, G=1, 
 		cyc=20, labels=NULL, normalization = "RLE", 
 		kmeansIter=10, ignoreIfAllCountsSmaller=1, theta=2.5, minMu=0.5,rmax=13.0,
 		initialization="kmeans", 
@@ -341,19 +341,24 @@ dexus <- function(X, nclasses=2, alphaInit=c(0.5,0.5), G=1,
 			message("Resetting number of classes due to labels.")
 			nclasses <- length(unique(labels))
 		}
-		alphaInit <- rep(1,nclasses)
 	}
+	
+
 	
 	if (!is.numeric(nclasses) | nclasses < 1 | nclasses!=as.integer(nclasses)){
 		stop("\"nclasses\" must be integer greater or equal to 1.")
 	}
 	if (nclasses > ncol(X))
 		stop("Number of conditions greater than the number of observations.")
+	
+	if (missing(alphaInit))
+		alphaInit <- rep(1,nclasses)
 	if (!is.numeric(alphaInit) | any(alphaInit < 0) | length(alphaInit)!=nclasses){
 		message("\"alphaINIT\" must be numeric greater and all values greater 0.")
 		stop("Length of this vector must be \"nclasses\"")
 	}
-	if (!is.numeric(G) | length(G) !=1 | G <= 0){
+	
+	if (!is.numeric(G) | length(G) !=1 | G < 0){
 		stop("\"G\" must be a numeric greater or equal to 0.")
 	}
 	if (!is.numeric(cyc) | length(cyc) !=1 | cyc < 1){

@@ -351,7 +351,7 @@ setMethod("sort",
 			n <- nrow(x@normalizedData)
 			
 			if (!is.null(x@params$mode)){
-				if (x@params$mode=="unsupervised"){
+				if (x@params$mode=="unsupervised" | x@params$mode=="semi-supervised"){
 					idx <- order(x@INIValues,decreasing=TRUE)[1:n]		
 				} else  if (x@params$mode %in% c("two-class","multi-class")){
 					idx <- order(x@pvals)[1:n]	
