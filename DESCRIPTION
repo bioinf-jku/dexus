@@ -30,7 +30,7 @@ Suggests: parallel, statmod, stats, DESeq, RColorBrewer
 Collate: 'AllClasses.R' 'AllGenerics.R' 'binomTest.R' 'normalization.R'
         'dexus.R' 'getSizeNB.R' 'functions.R' 'plot-methods.R'
         'show-methods.R' 'methodsAccess.R' 'dexss.R'
-biocViews: Sequencing, Sequencing, Mus_musculus, Homo_sapiens,
+biocViews: Sequencing, Mus_musculus, Homo_sapiens,
         Zea_Mays, Macaca_mulatta, Pan_troglodytes, RNASeq,
         GeneExpression, DifferentialExpression, CellBiology,
         Sequencing, HapMap, DifferentialExpression, RNAseqData,
