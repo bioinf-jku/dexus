@@ -10,13 +10,13 @@ citEntry(entry="Article",
          pages="e198-e198",
          journal="Nucleic Acids Research",
          organization=paste("Institute of Bioinformatics",
-                            "Johannes Kepler University", sep=", "),
+                            "Johannes Kepler University Linz, Austria", sep=", "),
          doi="10.1093/nar/gkt834",
          url="http://bioinf.jku.at/software/dexus",
          textVersion =
-             paste("Guenter Klambauer, Thomas Unterthiner, Sepp Hochreiter. ",
+             paste("Guenter Klambauer, Thomas Unterthiner, and Sepp Hochreiter (2013).",
              "DEXUS: Identifying Differential Expression in RNA-Seq Studies with Unknown Conditions. ",
-             "Nucleic Acids Research (2013). doi:10.1093/nar/gkt834",sep="")
+             "Nucleic Acids Research, 41(21), e198-e198. doi:10.1093/nar/gkt834",sep="")
          )
 citFooter("To obtain the references in BibTex format, enter",
 "'toBibtex(citation(\"dexus\"))'")
