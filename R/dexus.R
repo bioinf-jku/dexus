@@ -578,15 +578,15 @@ dexus <- function(X, nclasses=2, alphaInit, G=1,
 			dispsA <- 1/r[,1]+1e-15
 			dispsB <- 1/r[,2]+1e-15
 			
-			pval <- nbinomTestForMatricesC(X.raw[!exclIdx,idxGroupA], X.raw[!exclIdx,idxGroupB],
+			pval <- nbinomTestForMatricesC(X.raw[!exclIdx,idxGroupA,drop=FALSE], X.raw[!exclIdx,idxGroupB,drop=FALSE],
 					norm$sizeFactors[idxGroupA], norm$sizeFactors[idxGroupB], dispsA, dispsB )
 			
 			# Readjusting the low-ranked pvalues
 			idxLR <- which(pval >= 0.99 | is.na(pval)) #LR:= Low Ranked
 			if (length(idxLR)>0){
 				pvalLR <- sort(runif(n=length(idxLR),0.01,1.00))
-				rankO <- order(abs(rowSums(X[idxLR,idxGroupA])-
-										rowSums(X[idxLR,idxGroupB])),decreasing=TRUE)
+				rankO <- order(abs(rowSums(X[idxLR,idxGroupA,drop=FALSE])-
+										rowSums(X[idxLR,idxGroupB,drop=FALSE])),decreasing=TRUE)
 				idxLR <- idxLR[rankO]
 				pval[idxLR] <- pvalLR 
 			}
