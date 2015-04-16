@@ -1,0 +1,900 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+%\VignetteIndexEntry{dexus: Manual for the R package}
+%\VignetteDepends{dexus}
+%\VignettePackage{dexus}
+%\VignetteKeywords{RNASeq, RNA-Seq, RNA, Sequencing, NGS, differential expression,
+%   transcripts, transcriptomics, negative binomial, dispersion,
+%   overdispersion, maximum-a-posteriori, I/NI, INI, informative,
+%   non-informative, replicates, unsupervised, clustering, unknown, conditions,
+%   ENCODE, sample groups, case-control, treatment study, randomized controlled
+%   study, RCS, non-randomized, cross-sectional, cross sectional, cohort}
+
+\documentclass[article]{bioinf}
+
+\usepackage[noae]{Sweave}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage[authoryear]{natbib}
+\usepackage{bm}
+
+\hypersetup{colorlinks=false,
+   pdfborder=0 0 0,
+   pdftitle={DEXUS -- Identifying Differential Expression in RNA-Seq Studies
+   with Unknown Conditions},
+   pdfauthor={G\"unter Klambauer},
+   pdfsubject={RNA-Seq and Detection of Differential Expression},
+   pdfkeywords={RNASeq, RNA-Seq, RNA, Sequencing, NGS, differential expression,
+   transcripts, transcriptomics, negative binomial, dispersion,
+   overdispersion, maximum-a-posteriori, I/NI, INI, informative,
+   non-informative, replicates, unsupervised, clustering, unknown, conditions,
+   ENCODE, sample groups, case-control, treatment study, randomized controlled
+   study, RCS, non-randomized, cross-sectional, cross sectional, cohort}}
+
+\title{DEXUS -- Identifying Differential Expression in RNA-Seq Studies
+   with Unknown Conditions}
+\author{G\"unter Klambauer and Thomas Unterthiner}
+\affiliation{Institute of Bioinformatics, Johannes Kepler University
+Linz\\Altenberger Str. 69, 4040 Linz, Austria\\
+\email{klambauer@bioinf.jku.at}}
+
+
+\newcommand{\DEXUS}{\texttt{DEXUS}}
+\newcommand{\R}{R}
+\newcommand{\Real}{\mathbb{R}}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\def\ga{\bm{\gamma}}
+\def\ep{\bm{\epsilon}}
+\def\al{\bm{\alpha}}
+\def\Lambda{\lambda}
+\def\pp{\bm{\Psi}}
+\def\pps{\bm{\psi}}
+\def\Si{\bm{\Sigma}}
+\def\La{\bm{\Lambda}}
+\def\m{\bm{m}}
+\def\x{\bm{x}}
+\def\r{\bm{r}}
+\def\p{\bm{p}}
+\def\y{\bm{y}}
+\def\z{\bm{z}}
+\def\vb{\bm{v}}
+\def\u{\bm{u}}
+\def\1{\bm{1}}
+\def\0{\bm{0}}
+\def\le{{\bf \large 1}}
+\def\lnull{{\bf \large 0}}
+\def\I{\bm{I}}
+\def\C{\bm{C}}
+\def\c{\bm{c}}
+\def\X{\bm{X}}
+\def\Z{\bm{Z}}
+\def\L{\bm{L}}
+\def\muu{\bm{\mu}}
+\def\RR{\mathbb{R}}
+\def\NN{\mathbb{N}}
+\def\sign{\mathrm{sign}}
+\def\Xcal{\mathcal{X}}
+\def\Fcal{\mathcal{F}}
+\def\E{\mathrm{E}}
+\def\D{\mathrm{D}}
+\def\P{\mathrm{P}}
+\def\ML{\mathrm{ML}}
+\def\sgn{\mathop{\mathrm{sgn}\,}}
+\def\AUCROC{$\mathrm{AUC}_{\mathrm{ROC}}$\ }
+\def\AUCPR{$\mathrm{AUC}_{\mathrm{PR}}$\ }
+\definecolor{grey}{rgb}{0.8,0.8,0.8}
+
+
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\texttt{#1}}\ }
+\newcommand{\method}[1]{{\fontfamily{phv}\fontshape{rm}\selectfont #1}}
+\newcommand{\pvalue}{$p$-value\ }
+\newcommand{\pvalues}{$p$-values\ }
+\newcommand{\pe}{$p$\hspace{2pt}=\hspace{2pt}}
+
+
+
+\setkeys{Gin}{width=0.55\textwidth}
+
+\SweaveOpts{eps=FALSE}
+
+\begin{document}
+<<echo=FALSE>>=
+options(width=75)
+set.seed(0)
+library(dexus)
+dexusVersion <- packageDescription("dexus")$Version
+@
+\newcommand{\dexusVersion}{\Sexpr{dexusVersion}}
+\manualtitlepage[Version \dexusVersion, \today]
+
+\vspace{1cm}
+
+\newlength{\auxparskip}
+\setlength{\auxparskip}{\parskip}
+\setlength{\parskip}{0pt}
+\tableofcontents
+\clearpage
+\setlength{\parskip}{\auxparskip}
+
+\newlength{\Nboxwidth}
+\setlength{\Nboxwidth}{\textwidth}
+\addtolength{\Nboxwidth}{-2\fboxrule}
+\addtolength{\Nboxwidth}{-2\fboxsep}
+
+\newcommand{\notebox}[1]{%
+\begin{center}
+\fbox{\begin{minipage}{\Nboxwidth}
+\noindent{\sffamily\bfseries Note:} #1
+\end{minipage}}
+\end{center}}
+
+\section{Introduction}
+\method{DEXUS} identifies differentially expressed transcripts in
+RNA-Seq data under all possible study designs such as studies 
+without replicates, without sample groups, and with unknown conditions.
+\method{DEXUS} works also for known conditions, for example for
+RNA-Seq data with two or multiple conditions. 
+    
+RNA-Seq read count data can be provided both by the S4 class 
+{\tt CountDataSet} and by read count matrices.
+Differentially expressed transcripts can be visualized by heatmaps,
+in which unknown conditions, replicates, and samples groups are also indicated.
+This software is fast as the core algorithm is written in C.
+For very large data sets, a parallel version of \method{DEXUS}
+is provided in this \Rpackage.
+    
+\method{DEXUS} is a statistical model that is selected in a Bayesian framework by
+an EM algorithm. \method{DEXUS} does not need replicates to detect
+differentially expressed transcript, since the replicates (or conditions) are 
+estimated by the EM method for each transcript. This is an unsupervised machine
+learning approach that does not require labeled data. The method provides an
+informative/non-informative (I/NI) value to extract differentially expressed
+transcripts at a desired significance level or power.
+    
+Detection of differential expression in RNA-Seq data is currently limited 
+to studies in which two or more sample conditions are known {\em a priori}.
+However, these biological conditions are typically unknown  in cohort,
+cross-sectional, and non-randomized controlled studies such as the HapMap, the
+ENCODE, or the 1000 Genomes project. \method{DEXUS} models read counts as
+a finite mixture of negative binomial distributions.
+
+See \url{http://www.bioinf.jku.at/software/dexus} for additional
+information, data sets, and \R\ scripts. 
+
+
+\section{Getting Started and Quick Guide}
+To load the package, enter the following in the \R\ session:
+<<>>=
+library(dexus)
+@
+With the package {\tt dexus} we provide the ``Mice strains''
+\citep{Bottomly2011}, ``Primate Liver'' \citep{Blekhman2010}, ``Maize leaves'' 
+\citep{Li2010a}, ``European HapMap'' \citep{Montgomery2010}, and the ``Nigerian
+HapMap'' \citep{Pickrell2010} data sets. The read counts are stored in the objects 
+{\tt countsBottomly}, {\tt countsGilad}, {\tt countsLi}, {\tt countsMontgomery},
+and {\tt countsPickrell}, respectively.
+
+<<>>=
+data(dexus)
+ls()
+@
+
+\subsection{Unknown Conditions} 
+
+One can simply run \method{DEXUS} by applying
+the function {\tt dexus} to the count matrices. This is the mode in which the 
+conditions are unknown, i.e. no labels that indicate the replicate groups have
+to be provided.
+
+<<eval=FALSE>>=
+result <- dexus(countsBottomly[1:1000, ])
+plot(result)
+@
+
+
+<<fig=FALSE,echo=FALSE,results=hide>>=
+result <- dexus(countsBottomly[1:1000, ])
+pdf("001.pdf")
+plot(result,cexSamples=1)
+dev.off()
+@
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[angle=0,width= 0.6\columnwidth]{001.pdf}
+\caption[Result of \method{DEXUS} for data with {\em unknown} conditions.]{Result of
+\method{DEXUS} for  data with {\em unknown} conditions. A heatmap of the log
+read counts of the top ranked transcripts of the ``Mice strains'' \citep{Bottomly2011} data set is 
+shown. Rows represent transcripts sorted  by their  I/NI
+values. The trancript on the top has  the highest  I/NI value. Columns represent
+different samples. The labels  ``D2'' and ``B6''  represent the two different
+strains. Red crossed indicate the samples belonging to the second condition
+that \method{DEXUS} has identified.
+}
+\end{center}
+\end{figure} 
+
+\subsection{Known Conditions} 
+
+To test between two or more replicate
+groups, \method{DEXUS} needs to be provided with the group labels:
+<<eval=FALSE>>=
+resultSupervised <- dexus(countsBottomly[1:1000, ],
+		labels=substr(colnames(countsBottomly),1,2))
+plot(resultSupervised)
+@
+
+<<fig=FALSE,echo=FALSE,results=hide>>=
+resultSupervised <- dexus(countsBottomly[1:1000, ],
+		labels=substr(colnames(countsBottomly),1,2))
+pdf("002.pdf")
+plot(resultSupervised,cexSamples=1)
+dev.off()
+@
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[angle=0,width= 0.6\columnwidth]{002.pdf}
+\caption[Result of \method{DEXUS} for data with {\em known} conditions.]{Result of
+\method{DEXUS} for data with  {\em known} conditions. 
+A heatmap of the log read counts of the 
+top ranked transcripts of the ``Mice strains'' \citep{Bottomly2011} data set is 
+shown. Rows represent transcripts
+sorted by their $p$-values. The trancript on the top
+has the lowest $p$-value. Columns represent different samples. The labels 
+``D2'' and ``B6'' represent the two different strains. Red crossed indicate the
+samples belonging to the second condition, that was given by the labels}
+\end{center}
+\end{figure} 
+
+
+\section{Input Data: Read Count Matrices or {\tt CountDataSets}}
+
+\method{DEXUS} expects a table of counts per transcript, transcript, exon, or any
+other region of interest as input in analogy to other RNA-Seq analysis methods
+\citep{Anders2010, Robinson2010a, Hardcastle2010, Li2012, Wang2010, Li2011,
+Tarazona2011, Wu2012}. The table should have the transcripts as rows and
+samples as columns. An entry should correspond to the number of reads of 
+the sample mapping to the transcript. Technical replicates of one sample should
+be summed up so that each column corresponds to one sample.
+There are various ways how to produce count matrices from BAM files:
+\begin{itemize}
+  \item A full guide on processing RNA-Seq data including the calculation of
+  read count matrices is provided at
+  \url{http://en.wikibooks.org/wiki/Next_Generation_Sequencing_(NGS)/RNA}.
+  \item The function {\tt HTSeq-count} of {\tt HTSeq} Python package
+        \url{http://www-huber.embl.de/users/anders/HTSeq/doc/count.html}.
+  \item Ready-made count tables for a lot of studies are available at 
+        \url{http://bowtie-bio.sourceforge.net/recount/} \citep{Frazee2011}.
+  \item The function {\tt countOverlaps} of the Bioconductor package {\tt
+  GenomicRanges} can also be utilized.
+  \item The function {\tt getSegmentReadCountsFromBAM} of the Bioconductor
+  package {\tt cn.mops} \citep{Klambauer2012} can also be utilized to extract
+  read counts from BAM files efficiently.
+\end{itemize}
+
+\subsection{Read Count Matrices or Count Tables as Input for DEXUS}
+A read count matrix or count table should look like the following:
+<<>>=
+data(dexus)
+countsBottomly[1:10,1:5]
+@
+
+
+A numeric matrix of read counts can directly be used with \method{DEXUS}.
+<<eval=FALSE>>=
+result <- dexus(countsBottomly)
+@
+
+\subsection{{\tt CountDataSets} as input for DEXUS}
+A {\tt CountDataSet}, such as the ones used in the package
+\method{DESeq} \citep{Anders2010}, can also directly be used it with
+\method{DEXUS}:
+
+<<eval=FALSE>>=
+library(DESeq)
+cds <-  newCountDataSet(countData=countsBottomly, 
+		conditions=substr(colnames(countsBottomly),1,2) )
+result <- dexus(cds)
+@
+
+
+
+\section{General Study Designs: No Replicates, Unknown Sample Groups or
+Conditions}
+
+Examples of studies in which the groups are unknown, are the studies
+of \citet{Montgomery2010} and \citet{Pickrell2010}. They sequenced the 
+RNA of HapMap individuals to investigate eQTLs. \method{DEXUS} is able 
+to identify differential expression in these data sets. The method estimates
+the conditions for each transcript individually.
+
+To run the method simply apply the function {\tt dexus} to the count table. In
+the following example we run the algorithm only one the first 1000 transcripts.
+<<>>=
+resultMontgomery <- dexus(countsMontgomery[1:1000, ])
+@
+
+To show a summary of the result object, simply type the following.
+<<>>=
+resultMontgomery
+@
+
+The transcripts are in their original order; the displayed columns
+give the whether a transcript is differentially
+expressed ({\tt INICall}), 
+the evidence for differential expression measured by the I/NI values 
+({\tt INIValues}), and the means for each condition.
+
+It is possible to sort the result object such that the transcripts with the
+highest I/NI values are ranked highest.
+
+<<eval=FALSE>>=
+sort(resultMontgomery)
+@
+
+Transcripts with an I/NI value above $0.1$
+are classfied as differentially expressed. The function {\tt INI} filters 
+the result object for informative transcripts and sorts them by their I/NI calls.
+
+<<>>=
+informativeTranscripts <- INI(resultMontgomery,threshold=0.2)
+@
+
+
+The result can be visualized by a heatmap using the {\tt plot} function.
+<<eval=FALSE>>=
+plot(informativeTranscripts)
+@
+
+
+<<fig=FALSE,echo=FALSE,results=hide>>=
+pdf("004.pdf",width=12,height=6)
+plot(informativeTranscripts)
+dev.off()
+@
+\begin{figure}[H]
+\begin{center}
+\includegraphics[angle=0,width= \textwidth]{004.pdf}
+\caption[Result of \method{DEXUS} in unsupervised mode with {\em
+unknown conditions}.]{Result of \method{DEXUS} in unsupervised mode with {\em
+unknown conditions}. A heatmap of the log read counts of the top ranked transcripts of
+the ``European HapMap'' \citep{Montgomery2010} data set is shown. Rows represent
+transcripts sorted  by their  I/NI values.
+The trancript on the top has the highest I/NI. Columns represent
+different samples. Red symbols indicate samples that belong to the minor
+condition that was identified by \method{DEXUS}.
+}
+\end{center}
+\end{figure} 
+
+
+Information about a specific transcript can also be accessed from the result
+object by subsetting it with the transcript name.
+
+<<>>=
+resultMontgomery["ENSG00000007038"]
+@
+
+Even more information can be obtained by using the {\tt as.data.frame} function.
+<<eval=FALSE>>=
+as.data.frame(resultMontgomery["ENSG00000007038"])
+@
+<<echo=FALSE>>=
+as.data.frame(resultMontgomery["ENSG00000007038"])[,1:12]
+@
+
+
+
+To convert the full result object to a data frame that can be exported the 
+function {\tt as.data.frame} can be used.
+<<eval=FALSE>>=
+as.data.frame(sort(resultMontgomery))
+@
+For more information on the result object, see Section \ref{s:ResultObject}.
+
+
+\section{Case-Control Like Study Designs: Replicates, Known Sample Groups
+or Conditions}
+\subsection{Two Known Groups or Conditions}
+
+In the study of \citet{Bottomly2011}, two strains of mice, C57BL/6J (B6) and
+DBA/2J (D2), were compared using both RNA-Seq and microarrays.
+The data set consists of 21 lanes from male mice (10 of the B6 strain and 11 of
+D2 strain), produced using an Illumina GAIIx sequencing machine.
+The data set was provided by the \method{ReCount} repository
+\citep{Frazee2011} that is based on Ensembl 61 transcript definitions.
+In this case of {\em two known conditions} we provide \method{DEXUS} with the
+group labels, in order to detect transcripts that are differentially expressed
+between the two mice strains. 
+
+
+We apply the function {\tt dexus} to the count table of the first 1000
+transcripts and provide the labels of the samples, and set the normalization
+to ``Upper Quartile'' normalization.
+
+<<>>=
+resultSupervised <- dexus(countsBottomly[1:1000, ],
+		labels=substr(colnames(countsBottomly),1,2),
+		normalization="upperquartile")
+@
+
+
+To show a list of differentially expressed transcripts, simply type the name of the 
+result object.
+<<>>=
+resultSupervised
+@
+
+To sort the transcripts in the result object by $p$-values use the {\tt sort}
+method.
+
+<<>>=
+resultSupervised <- sort(resultSupervised)
+@
+
+To obtain a heatmap of the differentially expressed transcripts, type {\tt plot}.
+<<eval=FALSE>>=
+plot(resultSupervised)
+@
+
+To get the full list of transcripts together with additional information, such as
+the I/NI values, conditions, dispersions, and means the function
+{\tt as.data.frame} can be used.
+
+<<eval=FALSE>>=
+as.data.frame(resultSupervised)
+@
+For more information on the result object, see Section \ref{s:ResultObject}.
+
+
+\subsection{Multiple Known Groups or Conditions}
+
+\citet{Blekhman2010} investigated the differences in alternative splicing 
+in liver tissue between humans, chimpanzees and rhesus macaques. 
+For this purpose they  performed RNA-Seq on three male and three female liver
+samples from each species. They focused on the expression values of exons that
+had reliably determined orthologs in all species.  Read counts for exons were
+provided by \citet{Blekhman2010}, who used transcript models from Ensemble (Release 50). 
+In this case the three species are three distinct groups. The aim is to find
+transcripts, that show large differences between these groups.
+
+We run \method{DEXUS} on this data set and provide the method with the group
+labels, i.e. the species.
+
+<<>>=
+resultMultipleGroups <- dexus(countsGilad[1:1000, ],
+		labels=substr(colnames(countsGilad),1,2))
+@
+
+To show a list of differentially expressed transcripts, simply type the name of the 
+result object.
+<<>>=
+resultMultipleGroups
+@
+
+To sort the transcripts in the result object by $p$-values use the {\tt sort}
+method.
+
+<<>>=
+resultMultipleGroups <- sort(resultMultipleGroups)
+@
+
+
+To obtain a heatmap of the top-ranked transcripts use the {\tt plot} function.
+
+<<eval=FALSE>>=
+plot(resultMultipleGroups)
+@
+
+<<fig=FALSE,echo=FALSE,results=hide>>=
+pdf("003.pdf")
+plot(resultMultipleGroups,cexSamples=1)
+dev.off()
+@
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[angle=0,width= 0.6\columnwidth]{003.pdf}
+\caption[Result of \method{DEXUS} in supervised mode with {\em multiple 
+known groups}.]{Result of \method{DEXUS} in supervised mode with {\em multiple 
+known groups}. A heatmap of the log read counts of the 
+top ranked transcripts of the ``Primate Liver'' \citep{Blekhman2010} data set is 
+shown. Rows represent transcripts sorted  by their  $p$-values. 
+The trancript on the top has the lowest $p$-value. Columns represent
+different samples. The labels  ``HS'',``PT'' and ``MM''  represent the three
+different species. Red symbols indicate the different species.
+}
+\end{center}
+\end{figure} 
+
+To get the full list of transcripts together with their $p$-values 
+the function {\tt getResult} can be used.
+<<eval=FALSE>>=
+as.data.frame(resultMultipleGroups)
+@
+For more information on the result object, see Section \ref{s:ResultObject}.
+
+
+
+\section{Calling Differential Expression, Visualization and the Result Object}
+\label{s:ResultObject}
+
+\subsection{Calling Differential Expression by the Informative/Non-Informative
+Call}
+
+In a setting in which the conditions or sample groups are unknown, or in which
+there are no replicates, the I/NI value measures the evidence for differential
+expression. At different thresholds \method{DEXUS} has different detection
+powers (sensitivity) and significance levels (specificity).  On 2,400 simulated
+data sets, I/NI value thresholds of 0.025, 0.05, and 0.1 yielded average
+specificities of 92\%, 97\%, and 99\% at sensitivities of 76\%, 61\%, and 38\%
+respectively. The threshold for the I/NI values is set by the function
+{\tt INIThreshold}. The function {\tt INI} filters out non-informative
+transcripts.
+
+<<echo=TRUE>>=
+informativeTranscripts2 <- INI(resultMontgomery,threshold=0.25)
+@
+
+The object {\tt informativeTranscripts2} contains only the informative, i.e. the
+differentially expressed transcripts.
+
+\subsection{Visualization}
+
+There is a generic plotting function that can be applied to the result object
+of \method{DEXUS}. The log read counts are visualized as a heatmap, in which we
+also indicate the identified sample condition.
+We can select which transcripts we want to plot by using the parameter {\tt
+idx}.
+
+<<eval=FALSE>>=
+#plots the top 8 transcripts
+plot(sort(informativeTranscripts2), idx=1:8)
+@
+
+<<fig=FALSE,echo=FALSE,results=hide>>=
+pdf("005.pdf",width=12,height=6)
+plot(sort(informativeTranscripts2),idx=1:8)
+dev.off()
+@
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[angle=0,width= \textwidth]{005.pdf}
+\caption[Result of \method{DEXUS} in unsupervised mode with {\em
+unknown conditions}.]{Result of \method{DEXUS} in unsupervised mode with {\em
+unknown conditions}. A heatmap of the log read counts of the top ranked transcripts of
+the ``European HapMap'' \citep{Montgomery2010} data set is shown. Rows represent
+transcripts sorted  by their  I/NI values.
+The trancript on the top has the highest I/NI. Columns represent
+different samples. Red symbols indicate samples that belong to the minor
+condition that was identified by \method{DEXUS}.
+}
+\end{center}
+\end{figure} 
+
+
+\subsection{The Structure of the Result Object}
+
+\method{DEXUS} returns an instance of ``DEXUSResult'' that contains the
+following slots:
+\begin{itemize}
+   \item {\tt transcriptNames}: The names of the transcripts, genes, exons, or
+   regions of interest.
+   \item {\tt sampleNames}: The sample names, as they were given in the 
+   input matrix.
+   \item {\tt inputData}: The original read count matrix.
+   \item {\tt normalizedData}: The normalized read count matrix.
+   \item {\tt sizeFactors}: The size factors that were calculated for the
+      normalization. This is that factor that scales each column or sample.
+   \item {\tt INIValues}: An informative/non-informative (I/NI) value for  each
+   sample that measures the evidence for differential expression.
+   \item {\tt INIThreshold}: The threshold for the I/NI values. Transcript with
+   I/NI values above the threshold will be considered as differentially
+   expressed.
+   \item {\tt INICalls}: A binary value for each transcript indicating whether
+   it is differentially expressed.
+   \item {\tt pvals:} In case of {\em two known conditions} or {\em multiple 
+   known conditions} it is possible to calculate a $p$-value for each
+   transcript. This value is given in this slot.
+   \item {\tt responsibilites:} A matrix of the size of the input matrix. It
+   indicates the condition for each sample and transcript. The condition named
+   ``1'' is the major condition. All other conditions are minor conditions. In
+   case of supervised ({\em two known conditions} or {\em multiple 
+   known conditions}) analyses this clustering matrix will be the same for all
+   transcripts.
+   \item {\tt posteriorProbs}: An array of the dimension of transcripts times
+   samples times conditions. It gives the probability that a certain read count 
+   $x$ was generated under a condition.
+   \item {\tt logFC}: The log foldchanges between the conditions. The reference
+   is always condition ``1''.
+   \item {\tt conditionSizes}: The ratio of samples belonging to that condition.
+   These are the $\alpha_i$ values of the model.
+   \item {\tt sizeParameters}: The size parameter estimates for each condition.
+   These are the $r_i$ values of the model.
+   \item {\tt means}: The mean of each condition. The $\mu _i$ values of the
+   model. 
+   \item {\tt dispersions}: The dispersion estimates for each condition. The
+   inverse size parameters.
+   \item {\tt params}: The input parameters of the \method{DEXUS} algorithm.
+\end{itemize}
+        
+
+
+\section{Parameter Settings of DEXUS}
+The input parameters of the \method{DEXUS} algorithm are the following:
+\begin{itemize}
+  \item {\tt X}: The read count matrix. If the reads are already normalized,
+  then set {\tt normalization} to ``{\tt none}''.
+  \item {\tt nclasses}: The number of conditions that \method{DEXUS} should
+  model.
+  The number should be much smaller than the number of samples. In
+  supervised mode ({\em two known conditions} or {\em multiple 
+   known conditions}) the algorithm uses the number of different
+   labels as {\tt nclasses}. Needs not be specified in supervised mode.
+  \item {\tt alphaInit}: The initialization of the $\alpha_i$ values of the
+  model.
+  A vector with length of the number of conditions. The algorithm internally
+  scales this vector to sum 1. Needs not be specified in supervised mode.
+  \item {\tt G}: The weight of the Dirichlet prior. An important parameter that
+  guides the EM algorithm. The higher this value the more transcripts will be
+  explained by one condition and will therefore be classified as not
+  differentially expressed. The lower the value of {\tt G} the more transcripts
+  will be found to be differentially expressed. Needs not be specified in
+  supervised mode.
+  \item {\tt cyc}: The number of cycles of the EM algorithm per transcript.
+  Needs not be specified in supervised mode.
+  \item {\tt labels}: If the conditions, groups, or classes are known, then they
+  can be passed to the algorithm through this parameter.
+  \item {\tt normalization}: The normalization method to be used. Choices are
+  ``RLE'', ``upperquartile'', and ``none''.
+  \item {\tt kmeansIter}: For the initialization of the algorithm a k-means
+  clustering is run. This is the number of iterations of the clustering.
+  \item {\tt ignoreIfAllCountsSmaller}: A transcript is considered as ``not
+  expressed'', if counts of all samples are below this value. The algorithm is
+  not applied to these transcripts.
+  \item {\tt theta}: The weight of the exponential prior on the size parameter
+  of the negative binomial distributions. The higher this parameter, the lower the
+  estimates of the size parameters, and consequently the higher the estimates of
+  the overdispersions. 
+  \item {\tt minMu}: The minimal value for the mean parameter of the negative
+  binomial distribution.
+  \item {\tt rmax}: An upper bound for the size parameter and thereby a lower
+  bound for the overdispersion. The value is set to the value that \method{DESeq} uses for
+  this purpose.
+  \item {\tt initializiation}: How the initial estimates of the conditions are
+  determined. Possible choices are ``kmeans'' and ``quantiles''. Needs not be
+  specified in supervised mode.
+  \item {\tt multiClassPhiPoolingFunction}: In case of multiple known conditions
+  it is possible to calculate one overdispersion value per transcript. This can be
+  calculated over all conditions or as mean, maximum or minimum over the
+  specified conditions. Usually the option ``NULL'' (calculation of the 
+  overdispersion across all conditions) performs best.
+\end{itemize}
+
+\section{The Method}
+\method{DEXUS} models read counts as
+a finite mixture of negative binomial distributions
+in which each mixture component
+corresponds to a condition.
+\method{DEXUS} classifies a transcript as differentially expressed
+if modeling of its read counts requires more than one condition.
+To account for the high overdispersion
+observed in RNA-Seq data,
+\method{DEXUS} assumes that under each condition the read counts are
+drawn from a 
+negative binomial distribution.
+Read count $x$ is explained by a mixture of $n$ negative binomial
+distributions:
+\begin{align}
+\label{eq:DEXUS}
+p(x) \ = \ \sum_{i=1}^{n}\alpha_{i} \ \mathrm{NB}(x \ ; \ \mu_{i},r_{i}) \ ,
+\end{align}
+where $\alpha_{i}$ is the probability of being in 
+condition $i$ out of $n$ possible conditions. 
+In condition $i$, read counts are drawn from 
+a negative binomial distribution with mean $\mu_i$ and size $r_i$,
+where the size parameter $r_{i}$ is the inverse of the overdispersion $\phi_i$.
+An expectation maximization (EM) algorithm is used to estimate
+mean and overdispersion parameters of the negative binomials
+as well as the condition under which a particular read count was generated.
+\method{DEXUS}
+decomposes read count variation into variation due to noise and
+variation due to differential expression.
+The evidence for differential expression is 
+measured by an informative/non-informative (I/NI) value.
+\method{DEXUS} applies a threshold to the I/NI value
+to extract differentially expressed transcripts 
+with a desired specificity (significance level)
+or sensitivity (power).
+
+\method{DEXUS} performs excellently in identifying differentially
+expressed transcripts on data with unknown conditions. 
+\method{DEXUS} was tested on 2,400 simulated data sets.
+For I/NI value thresholds of 0.025, 0.05, and 0.1, it
+yielded average specificities of 92\%, 97\%, and 99\% at 
+sensitivities of 76\%, 61\%, and 38\%, respectively.
+Subsequently, \method{DEXUS} was tested on real-world data sets,
+in which it identified differentially
+expressed transcripts between subgroups defined by sex, species,
+or tissue although information about these subgroups was withheld.
+On HapMap individuals, \method{DEXUS} detected several differentially
+expressed transcripts, the vast majority of which are related to sex,
+eQTLs, or copy number variable regions.
+However, we were unable to interpret the conditions for some differentially
+expressed transcripts 
+which hints at the existence of another cause of differential expression.
+
+\section{A MAP Estimate for the Size Parameter and the
+Overdispersion of a Negative Binomial}
+
+We provide the function {\tt getSizeNB} that gives an estimate for the size
+parameter of a negative binomial distribution from given data. In this function
+the maximum-likelihood estimate is used, if the argument {\tt eta} is set to
+0, and if {\tt eta} is set to a value greater than 0, a maximum-a-posteriori
+estimator for the size parameter is calculated. In that case an exponential 
+prior is used. The argument {\tt eta} determines the weight of this prior.
+
+The maximum-likelihood estimator overestimates the size parameter and, thus,
+underestimates the overdispersion parameter \cite{Piegorsch1990}. The
+maximum-a-posteriori estimator can correct for this bias and decreases the
+variance of the estimator, as we show in the following example. Another
+problem is that, if the mean of the given data exceeds the variance, the
+maximum-likelihood-estimator tends to infinity \cite{Anscombe1950}. By setting
+the argument {\tt rmax} to a positive value, one can infer an upper bound on
+the size parameter and, thereby, a lower bound on the overdispersion.
+
+
+<<eval=FALSE>>=
+trueSizeParameter <- 2
+x <- rnbinom(n=5, size=trueSizeParameter, mu=40)
+(sizeML <- getSizeNB(x,eta=0))
+@
+<<echo=FALSE>>=
+trueSizeParameter <- 2
+x <- c(38,40,30,55,36)
+(sizeML <- getSizeNB(x,eta=0))
+@
+<<>>=
+(sizeMAP <- getSizeNB(x,eta=1))
+@
+<<>>=
+(trueDispersion <- 1/trueSizeParameter)
+@
+<<>>=
+(dispersionML <- 1/getSizeNB(x,eta=0))
+@
+<<>>=
+(dispersionMAP <- 1/getSizeNB(x,eta=1))
+@
+
+
+
+\bibliographystyle{natbib}
+%\bibliography{literature}
+
+\begin{thebibliography}{}
+
+\bibitem[Anders and Huber(2010)Anders and Huber]{Anders2010}
+Anders, S. and Huber, W. (2010).
+\newblock Differential expression analysis for sequence count data.
+\newblock {\em Genome Biology\/}, {\bf 11}(10), R106.
+
+\bibitem[Anscombe(1950)Anscombe]{Anscombe1950}
+Anscombe, F. J. (1950).
+\newblock Sampling theory of the negative binomial and logarithmic series
+  distributions.
+\newblock {\em Biometrika\/}, {\bf 37}(3/4), 358--382.
+
+\bibitem[Blekhman {\em et al.}(2010)Blekhman, Marioni, Zumbo, Stephens, and
+  Gilad]{Blekhman2010}
+Blekhman, R., Marioni, J. C., Zumbo, P., Stephens, M., and Gilad, Y. (2010).
+\newblock Sex-specific and lineage-specific alternative splicing in primates.
+\newblock {\em Genome Research\/}, {\bf 20}(2), 180--189.
+
+\bibitem[Bottomly {\em et al.}(2011)Bottomly, Walter, Hunter, Darakjian,
+  Kawane, Buck, Searles, Mooney, McWeeney, and Hitzemann]{Bottomly2011}
+Bottomly, D., Walter, N. A. R., Hunter, J. E., Darakjian, P., Kawane, S., Buck,
+  K. J., Searles, R. P., Mooney, M., McWeeney, S. K., and Hitzemann, R. (2011).
+\newblock {Evaluating gene expression in C57BL/6J and DBA/2J mouse striatum
+  using RNA-Seq and microarrays.}
+\newblock {\em PLoS One\/}, {\bf 6}(3), e17820.
+
+\bibitem[Frazee {\em et al.}(2011)Frazee, Langmead, and Leek]{Frazee2011}
+Frazee, A. C., Langmead, B., and Leek, J. T. (2011).
+\newblock {ReCount: a multi-experiment resource of analysis-ready RNA-seq gene
+  count datasets.}
+\newblock {\em BMC Bioinformatics\/}, {\bf 12}, 449.
+
+\bibitem[Hardcastle and Kelly(2010)Hardcastle and Kelly]{Hardcastle2010}
+Hardcastle, T. J. and Kelly, K. A. (2010).
+\newblock {baySeq: empirical Bayesian methods for identifying differential
+  expression in sequence count data.}
+\newblock {\em BMC Bioinformatics\/}, {\bf 11}, 422.
+
+\bibitem[Klambauer {\em et al.}(2012)Klambauer, Schwarzbauer, Mayr, Clevert,
+  Mitterecker, Bodenhofer, and Hochreiter]{Klambauer2012}
+Klambauer, G., Schwarzbauer, K., Mayr, A., Clevert, D.-A., Mitterecker, A.,
+  Bodenhofer, U., and Hochreiter, S. (2012).
+\newblock {cn.MOPS: mixture of Poissons for discovering copy number variations
+  in next-generation sequencing data with a low false discovery rate}.
+\newblock {\em Nucleic Acids Research\/}, {\bf 40}(9), e69.
+
+\bibitem[Li and Tibshirani(2011)Li and Tibshirani]{Li2011}
+Li, J. and Tibshirani, R. (2011).
+\newblock Finding consistent patterns: A nonparametric approach for identifying
+  differential expression in {RNA}-seq data.
+\newblock {\em Statistical Methods in Medical Research\/}, {\bf Published
+online}.
+
+\bibitem[Li {\em et al.}(2012)Li, Witten, Johnstone, and Tibshirani]{Li2012}
+Li, J., Witten, D. M., Johnstone, I. M., and Tibshirani, R. (2012).
+\newblock {Normalization, testing, and false discovery rate estimation for
+  RNA-sequencing data}.
+\newblock {\em Biostatistics\/}, {\bf 13}(3), 523--538.
+
+\bibitem[Li {\em et al.}(2010)Li, Ponnala, Gandotra, Wang, Si, Tausta, Kebrom,
+  Provart, Patel, Myers, Reidel, Turgeon, Liu, Sun, Nelson, and
+  Brutnell]{Li2010a}
+Li, P., Ponnala, L., Gandotra, N., Wang, L., Si, Y., Tausta, S. L., Kebrom,
+  T. H., Provart, N., Patel, R., Myers, C. R., Reidel, E. J., Turgeon, R., Liu,
+  P., Sun, Q., Nelson, T., and Brutnell, T. P. (2010).
+\newblock The developmental dynamics of the maize leaf transcriptome.
+\newblock {\em Nature Genetics\/}, {\bf 42}(12), 1060--1067.
+
+\bibitem[Montgomery {\em et al.}(2010)Montgomery, Sammeth, Gutierrez-Arcelus,
+  Lach, Ingle, Nisbett, Guigo, and Dermitzakis]{Montgomery2010}
+Montgomery, S. B., Sammeth, M., Gutierrez-Arcelus, M., Lach, R. P., Ingle, C.,
+  Nisbett, J., Guigo, R., and Dermitzakis, E. T. (2010).
+\newblock Transcriptome genetics using second generation sequencing in a
+  caucasian population.
+\newblock {\em Nature\/}, {\bf 464}(7289), 773--777.
+
+\bibitem[Pickrell {\em et al.}(2010)Pickrell, Marioni, Pai, Degner, Engelhardt,
+  Nkadori, Veyrieras, Stephens, Gilad, and Pritchard]{Pickrell2010}
+Pickrell, J. K., Marioni, J. C., Pai, A. A., Degner, J. F., Engelhardt, B. E.,
+  Nkadori, E., Veyrieras, J.-B., Stephens, M., Gilad, Y., and Pritchard, J. K.
+  (2010).
+\newblock Understanding mechanisms underlying human gene expression variation
+  with rna sequencing.
+\newblock {\em Nature\/}, {\bf 464}(7289), 768--772.
+
+\bibitem[Piegorsch(1990)Piegorsch]{Piegorsch1990}
+Piegorsch, W. W. (1990).
+\newblock Maximum likelihood estimation for the negative binomial dispersion
+  parameter.
+\newblock {\em Biometrics\/}, {\bf 46}(3), 863--867.
+
+\bibitem[Robinson {\em et al.}(2010)Robinson, McCarthy, and
+  Smyth]{Robinson2010a}
+Robinson, M. D., McCarthy, D. J., and Smyth, G. K. (2010).
+\newblock {edgeR}: a bioconductor package for differential expression analysis
+  of digital gene expression data.
+\newblock {\em Bioinformatics\/}, {\bf 26}(1), 139--140.
+
+\bibitem[Tarazona {\em et al.}(2011)Tarazona, Garc\'{i}a-Alcalde, Dopazo,
+  Ferrer, and Conesa]{Tarazona2011}
+Tarazona, S., Garc\'{i}a-Alcalde, F., Dopazo, J., Ferrer, A., and Conesa, A.
+  (2011).
+\newblock Differential expression in {RNA-seq}: A matter of depth.
+\newblock {\em Genome Research\/}, {\bf 8}.
+
+\bibitem[Wang {\em et al.}(2010)Wang, Feng, Wang, Wang, and Zhang]{Wang2010}
+Wang, L., Feng, Z., Wang, X., Wang, X., and Zhang, X. (2010).
+\newblock {DEGseq: an R package for identifying differentially expressed genes
+  from RNA-seq data.}
+\newblock {\em Bioinformatics\/}, {\bf 26}(1), 136--138.
+
+\bibitem[Wu {\em et al.}(2012)Wu, Wang, and Wu]{Wu2012}
+Wu, H., Wang, C., and Wu, Z. (2012).
+\newblock A new shrinkage estimator for dispersion improves differential
+  expression detection in rna-seq data.
+\newblock {\em Biostatistics\/}.
+
+\end{thebibliography}
+
+
+\end{document}
