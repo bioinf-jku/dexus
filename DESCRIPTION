@@ -20,7 +20,7 @@ Description: DEXUS identifies differentially expressed genes in RNA-Seq
         method for each transcript. The method provides an
         informative/non-informative value to extract differentially
         expressed transcripts at a desired significance level or power.
-Version: 1.12.0
+Version: 1.13.0
 Date: 2015-01-27
 Maintainer: Guenter Klambauer <klambauer@bioinf.jku.at>
 Author: Guenter Klambauer
