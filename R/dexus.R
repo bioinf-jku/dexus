@@ -569,6 +569,7 @@ dexus <- function(X, nclasses=2, alphaInit, G=1,
 			if (!quiet) message("Performing calculation of p values.")
 			idxGroupA <- which(labels==0)
 			idxGroupB <- which(labels==1)
+			if (length(idxGroupA)==0 | length(idxGroupB)==0) browser()
 			
 			# if rmax was set to "Inf"
 			poisIdx <- which(res$r < 0) 
@@ -578,9 +579,9 @@ dexus <- function(X, nclasses=2, alphaInit, G=1,
 			dispsA <- 1/r[,1]+1e-15
 			dispsB <- 1/r[,2]+1e-15
 			
-			pval <- nbinomTestForMatricesC(X.raw[!exclIdx,idxGroupA,drop=FALSE], X.raw[!exclIdx,idxGroupB,drop=FALSE],
+			pval <- nbinomTestForMatrices(X.raw[!exclIdx,idxGroupA,drop=FALSE], X.raw[!exclIdx,idxGroupB,drop=FALSE],
 					norm$sizeFactors[idxGroupA], norm$sizeFactors[idxGroupB], dispsA, dispsB )
-			
+						
 			# Readjusting the low-ranked pvalues
 			idxLR <- which(pval >= 0.99 | is.na(pval)) #LR:= Low Ranked
 			if (length(idxLR)>0){
